@@ -1,26 +1,20 @@
-const express = require("express");
 require("dotenv").config();
-
-
+const express = require("express");
 const cors = require("cors");
+
 const app = express();
-var corsOptions = {
-    origin: "http://localhost:8081"
-};
-app.use(cors(corsOptions));
 
-app.use(express.json()); /* bodyParser.json() is deprecated */
+app.use(cors({ origin: "http://localhost:8081" }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(express.urlencoded({ extended: true })); /*
-bodyParser.urlencoded() is deprecated */
-// simple route
 app.get("/", (req, res) => {
-    res.json({
-        message: "Funcionando ate aqui" });
+  res.json({ message: "Funcionando ate aqui" });
 });
-    require("./app/routes/rotas.routes.js")(app);
 
-    const PORT = process.env.PORT || 8080;
-    app.listen(PORT, () => {
-        console.log(`Server rodando na porta ${PORT}.`);
-    });
+require("./app/routes/rotas.routes.js")(app);
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Server rodando na porta ${PORT}.`);
+});

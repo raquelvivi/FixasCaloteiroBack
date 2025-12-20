@@ -1,4 +1,4 @@
-const pool = require("../config/db.js");
+const pool = require("../../db.js");
 // constructor
 const Comprass = function (compras) {
   this.id = compras.id;
@@ -8,7 +8,6 @@ const Comprass = function (compras) {
   this.tipopag = compras.tipopag;
   this.idfuncio = compras.idfuncio;
   this.idfixa = compras.idfixa;
-
 };
 
 Comprass.create = (NewCompras, result) => {
@@ -37,10 +36,8 @@ Comprass.create = (NewCompras, result) => {
   );
 };
 
-
-
 Comprass.findById = (id, result) => {
- const query = `
+  const query = `
     SELECT f.id as pessoa_id, f.nome, f.apelido, f.creditomax, f.datapaga,
            c.id as compra_id, c.dia, c.total, c.tipopag, c.idfuncio, c.apagar
     FROM compra c
@@ -71,17 +68,16 @@ Comprass.findById = (id, result) => {
         total: r.total,
         tipopag: r.tipopag,
         idfuncio: r.idfuncio,
-        apagar: r.apagar
+        apagar: r.apagar,
       }));
 
       result(null, { pessoa, compras });
       return;
     }
 
-    result(null, null);})
+    result(null, null);
+  });
 };
-
-
 
 Comprass.updateById = (id, compras, result) => {
   console.log(compras);
@@ -105,105 +101,138 @@ Comprass.updateById = (id, compras, result) => {
   );
 };
 
-async function pesquisa(id)  {
-   const res = await pool.query(
-     `SELECT c.id, c.total, c.apagar, c.dia
+async function pesquisa(id) {
+  const res = await pool.query(
+    `SELECT c.id, c.total, c.apagar, c.dia
      FROM compra c
      WHERE c.idfixa = $1
      ORDER BY c.dia ASC`,
-     [id]
-   );
+    [id]
+  );
 
-   return res.rows.map((r) => ({
-     id: r.id,
-     dia: r.dia,
-     total: r.total,
-     apagar: r.apagar,
-   }));
-
-   
+  return res.rows.map((r) => ({
+    id: r.id,
+    dia: r.dia,
+    total: r.total,
+    apagar: r.apagar,
+  }));
 }
-async function mudaCompra(id, compras, pago, vezes) {
+
+async function mudaCompra(id, compras, pago, vezes, lista, result) {
+  const client = await pool.connect(); // Usar cliente para transação
   let vi = 0;
+  console.log("entrando, lista: ", lista);
 
-  while (vi < vezes) {
-    //vai execultar um put para cada id coletado
+  try {
+    await client.query("BEGIN"); // Inicia a transação
+    if (lista.length == 1) {
+      console.log("lista.length == 1");
 
-    //se valor for maior que o valor da divida então
-    //diminui o total de valor porque essa parte ja foi descontada do pagamento
-    //e a conta zera
-    // if (valor >= compras[vi].apagar) {
+      let novoValor = compras[vi].apagar - pago;
 
-    let novoValor = compras[vi].apagar - pago;
+      if (novoValor <= 0) {
+        novoValor = 0;
+      }
 
-    let query;
+      console.log("pagar 1, novoValor: ", novoValor);
+      console.log("pagar 1, compras[vi].apagar: ", compras[vi].apagar);
+      console.log("pagar 1, pago: ", pago);
 
-    if (novoValor <= 0) {
-      novoValor = 0;
-    } else {
+      await client.query("UPDATE compra SET apagar = $1 WHERE id = $2", [
+        parseInt(novoValor),
+        compras[vi].id,
+      ]);
+      pago = pago - compras[vi].apagar; // deu certo então desconta
+      console.log("updated compras: ", { id: compras[vi].id });
+    } 
+    
+    
+    else {
+      console.log("lista.length != 1");
+      while (vi < vezes) {
+        //vai execultar um put para cada id coletado
+        console.log(`compras: ${compras[vi].id} e vi = ${vi}`);
+        console.log(`compras: ${compras[vi]} e vi = ${vi}`);
+        
+        if (compras[vi].apagar != 0) {
+          let novoValor = compras[vi].apagar - pago;
+
+          if (novoValor < 0) {
+            novoValor = 0;
+          }
+
+          console.log(
+            `Ficha ID: ${compras[vi].id} | Valor Antigo: ${compras[vi].apagar} | Novo: ${novoValor}`
+          );
+
+          await client.query(
+            "UPDATE compra SET apagar = $1, tipopag = $2 WHERE id = $3",
+            [
+              parseInt(novoValor),
+              novoValor === 0 ? "Pago" : "Parcial",
+              compras[vi].id,
+            ]
+          );
+          pago = pago - compras[vi].apagar; // deu certo então desconta
+          console.log("updated compras: ", { id: compras[vi].id });
+          if (pago < 0) pago = 0;
+        }
+        //se valor for maior que o valor da divida então
+        //diminui o total de valor porque essa parte ja foi descontada do pagamento
+        //e a conta zera
+        // if (valor >= compras[vi].apagar) {
+
+        vi++;
+      }
     }
 
-    console.log(compras[vi].apagar);
-    console.log(novoValor);
-
-    const res = await pool.query(
-      "UPDATE compra SET apagar = $1 WHERE id = $2",
-      [parseInt(novoValor), compras[vi].id],
-
-      (err, res) => {
-        if (err) {
-          console.log("error: ", err);
-          return;
-        }
-        if (res.rowCount == 0) {
-          return;
-        }
-        pago = pago - compras[vi].apagar; // deu certo então desconta
-        console.log("updated compras: ", { id: compras[vi].id });
-      }
-    );
-
-    vi++;
+    await client.query("COMMIT"); // Salva tudo no banco
+    result(null, {
+      message: "Pagamentos processados",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK"); // Desfaz tudo em caso de erro
+    console.error("Erro na transação:", err);
+    result(err);
+  } finally {
+    client.release();
   }
 }
 
 Comprass.updateByIdCompras = async (id, pago, result) => {
+  const client = await pool.connect();
 
-   
+  let resultadosPesquisa = await pesquisa(id);
 
-  let compras = await pesquisa(id);
+  let v = 0,
+    total = 0,
+    lista = [],
+    vezes = 0,
+    compras = [];
+  //a questão é ir juntando as migalhas de cada conta, afim de conseguir juntar
+  //contas suficientes para descontar o valor total pago usando um while
+  while (total < pago) {
+    //se total for menor que o valor prosiga porque ainda não temos o suficiente para descontar
+    //se a conta não tiver valor a pagar pula (melhora a rapidez)
 
-  console.log("resultado fora da pesquisa Socorro: ", compras);
-   
+    if (resultadosPesquisa[v].apagar > 0) {
+      total = total + resultadosPesquisa[v].apagar;
 
-      let v = 0,
-        total = 0,
-        lista = [],
-        vezes = 0;
+      lista.push(resultadosPesquisa[v].id);
 
+      compras.push(resultadosPesquisa[v]);
 
-      //a questão é ir juntando as migalhas de cada conta, afim de conseguir juntar
-      //contas suficientes para descontar o valor total pago usando um while
-      while (total < pago) {
-        //se total for menor que o valor prosiga porque ainda não temos o suficiente para descontar
-        if (compras[v].apagar != 0) {
-          //se a conta não tiver valor a pagar pula (melhora a rapidez)
-          total = total + compras[v].apagar;
+      vezes++;
+    }
 
-          lista.push(compras[v].id);
-          console.log(compras[v].apagar);
-          console.log(lista);
-          vezes++;
-        }
-        v++;
-      }
-      
-      await mudaCompra(id, compras, pago, vezes);
-    };
+    v++;
+  }
 
+  console.log("sem zeros: ", lista);
+  console.log("sem zeros: ", compras);
 
-
-
+  await mudaCompra(id, compras, pago, vezes, lista, result);
+};
 
 Comprass.remove = (id, result) => {
   pool.query("DELETE FROM compra WHERE id = $1", id, (err, res) => {
