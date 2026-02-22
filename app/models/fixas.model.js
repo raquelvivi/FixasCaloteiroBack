@@ -12,9 +12,15 @@ const Fixass = function (fixa) {
   this.foto = fixa.foto;
 };
 
-Fixass.create = (NewFixa, result) => {
-  pool.query(
-    "INSERT INTO fixa (nome, apelido, logradouro, numero, bairro, creditomax, datapaga) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+Fixass.create = async (NewFixa, result)  => {
+
+  const client = await pool.connect();
+
+  try {
+
+     await client.query("BEGIN"); // Inicia a transação
+  const idCriado = await client.query(
+    "INSERT INTO fixa (nome, apelido, logradouro, numero, bairro, creditomax, datapaga) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
     [
       NewFixa.nome,
       NewFixa.apelido,
@@ -23,21 +29,36 @@ Fixass.create = (NewFixa, result) => {
       NewFixa.bairro,
       parseFloat(NewFixa.creditomax),
       parseInt(NewFixa.datapaga),
-    ],
-    (err, res) => {
-      if (err) {
-        console.log("error: ", err);
-        result(err, null);
-        return;
-      }
-      console.log("created fixa: ", {
-        id: res.insertId,
-        ...NewFixa,
-      });
-      result(null, { id: res.insertId, ...NewFixa });
-    }
+    ]
   );
-};
+
+  await client.query(
+    "INSERT INTO compra (dia, total, apagar, tipopag, idfuncio, idfixa) VALUES ($1, $2, $3, $4, $5, $6)",
+    [
+      '01-01-0001',
+      0,
+      0,
+      0,
+      1,
+      idCriado.rows[0].id,
+    ],
+  );
+  await client.query("COMMIT"); // Salva tudo no banco
+
+  result(null, { id: idCriado, ...NewFixa });
+
+}catch (err) {
+    await client.query("ROLLBACK"); // Desfaz tudo em caso de erro
+    console.error("Erro na transação:", err);
+    result(err);
+  } finally {
+    client.release();
+  }
+
+
+}
+
+
 Fixass.findById = (id, result) => {
   console.log("findById id or nome = ", id);
 
