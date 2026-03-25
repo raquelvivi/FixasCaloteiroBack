@@ -106,7 +106,7 @@ async function pesquisa(id) {
     `SELECT c.id, c.total, c.apagar, c.dia
       FROM compra c
       WHERE c.idfixa = $1
-      ORDER BY c.dia DESC, c.apagar Desc;`,
+      ORDER BY c.dia DESC, c.apagar DESC;`,
     [id]
   );
 

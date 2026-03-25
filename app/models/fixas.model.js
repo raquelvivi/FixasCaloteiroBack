@@ -81,7 +81,21 @@ Fixass.findById = (id, result) => {
     });
   } else if (/^[a-zA-Z\s]+$/.test(id)) {
     pool.query(
-      "SELECT * FROM fixa WHERE nome ILIKE $1",
+      `SELECT 
+    f.id, f.nome, f.apelido, f.logradouro, f.numero,
+    f.creditomax, f.bairro, f.foto, f.datapaga, f.tipofoto,
+    SUM(c.apagar) AS total
+FROM 
+    compra c
+JOIN 
+    fixa f ON c.idfixa = f.id
+WHERE 
+    f.nome ILIKE $1
+GROUP BY 
+    f.id, f.nome, f.apelido, f.logradouro, f.numero,
+    f.creditomax, f.bairro, f.foto, f.datapaga, f.tipofoto
+ORDER BY 
+    f.nome DESC;`,
       [`%${id}%`],
       (err, res) => {
         if (err) {
