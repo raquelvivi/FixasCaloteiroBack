@@ -104,9 +104,9 @@ Comprass.updateById = (id, compras, result) => {
 async function pesquisa(id) {
   const res = await pool.query(
     `SELECT c.id, c.total, c.apagar, c.dia
-     FROM compra c
-     WHERE c.idfixa = $1
-     ORDER BY c.dia ASC`,
+      FROM compra c
+      WHERE c.idfixa = $1
+      ORDER BY c.dia DESC, c.apagar Desc;`,
     [id]
   );
 
