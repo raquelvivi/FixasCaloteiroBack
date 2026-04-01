@@ -15,8 +15,8 @@ Comprass.create = (NewCompras, result) => {
     "INSERT INTO compra (dia, total, apagar, tipopag, idfuncio, idfixa) VALUES ($1, $2, $3, $4, $5, $6)",
     [
       NewCompras.dia,
-      parseInt(NewCompras.total),
-      NewCompras.apagar,
+      parseFloat(NewCompras.total),
+      parseFloat(NewCompras.apagar),
       NewCompras.tipopag,
       NewCompras.idfuncio,
       NewCompras.idfixa,
@@ -83,7 +83,7 @@ Comprass.updateById = (id, compras, result) => {
   console.log(compras);
   pool.query(
     "UPDATE compra SET apagar = $1, tipopag = 'Pago'  WHERE id = $2",
-    [parseInt(compras.apagar), id],
+    [parseFloat(compras.apagar), id],
 
     (err, res) => {
       if (err) {
@@ -139,7 +139,7 @@ async function mudaCompra(id, compras, pago, vezes, lista, result) {
       console.log("pagar 1, pago: ", pago);
 
       await client.query("UPDATE compra SET apagar = $1 WHERE id = $2", [
-        parseInt(novoValor),
+        parseFloat(novoValor),
         compras[vi].id,
       ]);
       pago = pago - compras[vi].apagar; // deu certo então desconta
@@ -155,7 +155,7 @@ async function mudaCompra(id, compras, pago, vezes, lista, result) {
         console.log(`compras: ${compras[vi]} e vi = ${vi}`);
         
         if (compras[vi].apagar != 0) {
-          let novoValor = compras[vi].apagar - pago;
+          let novoValor = parseFloat((compras[vi].apagar - pago).toFixed(2));
 
           if (novoValor < 0) {
             novoValor = 0;
@@ -168,7 +168,7 @@ async function mudaCompra(id, compras, pago, vezes, lista, result) {
           await client.query(
             "UPDATE compra SET apagar = $1, tipopag = $2 WHERE id = $3",
             [
-              parseInt(novoValor),
+              parseFloat(novoValor),
               novoValor === 0 ? "Pago" : "Parcial",
               compras[vi].id,
             ]
