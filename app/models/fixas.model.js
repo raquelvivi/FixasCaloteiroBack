@@ -20,15 +20,14 @@ Fixass.create = async (NewFixa, result)  => {
 
      await client.query("BEGIN"); // Inicia a transação
   const idCriado = await client.query(
-    "INSERT INTO fixa (nome, apelido, logradouro, numero, bairro, creditomax, datapaga) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+    "INSERT INTO fixa (nome, apelido, logradouro, numero, bairro, creditomax) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
     [
       NewFixa.nome,
       NewFixa.apelido,
-      NewFixa.logradouro,
-      NewFixa.numero,
-      NewFixa.bairro,
+      NewFixa.logradouro || '',
+      NewFixa.numero || '0000-000',
+      NewFixa.bairro || 'Tranquedo Neves',
       parseFloat(NewFixa.creditomax),
-      parseInt(NewFixa.datapaga),
     ]
   );
 
@@ -133,6 +132,7 @@ ORDER BY
     });
   }
 };
+
 Fixass.getAll = (nome, result) => {
   let query = `SELECT 
      f.id, f.nome, f.apelido, f.logradouro, f.numero,

@@ -12,16 +12,17 @@ exports.create = (req, res) => {
     const fixasBody = new Fixas({
         nome: req.body.nome || null,
         apelido: req.body.apelido || null,
-        logradouro: req.body.logradouro || null,
-        numero: req.body.numero || null,
-        bairro: req.body.bairro || null,
-        creditomax: req.body.creditomax || null,
-        datapaga: req.body.datapaga || null
+        logradouro: req.body.logradouro || ' ',
+        numero: req.body.numero || '0000-000',
+        bairro: req.body.bairro || "Tranquedo Neves",
+        creditomax: req.body.creditomax || 100,
+        datapaga: req.body.datapaga || 10
     });
     
     // Save Fixas in the database
 
     Fixas.create(fixasBody, (err, data) => {
+        console.log("antes do bd")
         if (err)
             res.status(500).send({
                 message:
