@@ -38,6 +38,16 @@ CREATE TABLE funcio
     CONSTRAINT funcio_nome_key UNIQUE (nome)
 );
 
+CREATE TABLE mercado
+(
+    id serial Primary Key NOT NULL,
+    nome character varying(100) NOT NULL,
+    senha character varying(150) NOT NULL,
+    criado_em TIMESTAMPTZ DEFAULT NOW(),
+    atualizado_em TIMESTAMPTZ DEFAULT NOW();
+
+);
+
 ALTER TABLE compra
     ADD CONSTRAINT compra_idfixa_fkey FOREIGN KEY (idfixa)
     REFERENCES public.fixa (id) MATCH SIMPLE
@@ -50,3 +60,66 @@ ALTER TABLE compra
     REFERENCES public.funcio (id) MATCH SIMPLE
     ON UPDATE NO ACTION
     ON DELETE NO ACTION;
+
+
+-- COMPRA
+ALTER TABLE compra
+ADD COLUMN criado_em TIMESTAMPTZ DEFAULT NOW(),
+ADD COLUMN atualizado_em TIMESTAMPTZ DEFAULT NOW();
+
+-- FIXA
+ALTER TABLE fixa
+ADD COLUMN criado_em TIMESTAMPTZ DEFAULT NOW(),
+ADD COLUMN atualizado_em TIMESTAMPTZ DEFAULT NOW();
+
+-- FUNCIO
+ALTER TABLE funcio
+ADD COLUMN criado_em TIMESTAMPTZ DEFAULT NOW(),
+ADD COLUMN atualizado_em TIMESTAMPTZ DEFAULT NOW();
+
+
+-- Função reutilizável
+CREATE OR REPLACE FUNCTION atualizar_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.atualizado_em = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- COMPRA
+CREATE TRIGGER trigger_compra_atualizado
+BEFORE UPDATE ON compra
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();
+
+-- FIXA
+CREATE TRIGGER trigger_fixa_atualizado
+BEFORE UPDATE ON fixa
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();
+
+-- FUNCIO
+CREATE TRIGGER trigger_funcio_atualizado
+BEFORE UPDATE ON funcio
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();
+
+-- Mercado
+CREATE TRIGGER trigger_mercado_atualizado
+BEFORE UPDATE ON mercado
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();
+
+-- 1. Adiciona a coluna
+ALTER TABLE fixa
+ADD COLUMN idmercado INTEGER;
+
+-- 2. Cria a chave estrangeira
+ALTER TABLE fixa
+ADD CONSTRAINT fixa_idmercado_fkey
+FOREIGN KEY (idmercado)
+REFERENCES mercado(id)
+ON UPDATE NO ACTION
+ON DELETE NO ACTION;

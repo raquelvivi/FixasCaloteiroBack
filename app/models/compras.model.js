@@ -101,6 +101,23 @@ Comprass.updateById = (id, compras, result) => {
   );
 };
 
+async function dashboard() {
+  const res = await pool.query(
+    `SELECT CAST(SUM(c.apagar) AS DECIMAL(10,2)) AS dividasTotais from fixa f 
+      join compra c on c.idfixa = f.id
+      where f.idmercado = 1;`
+  );
+
+  const resTotalFixas = await pool.query(
+    `select COUNT(*) AS total_fixas from fixa where idmercado = 1;`
+  );
+
+  return {
+    dividasTotais: res.rows[0].dividadasTotais,
+    total_fixas: resTotalFixas.rows[0].total_fixas
+  };
+}
+
 async function pesquisa(id) {
   const res = await pool.query(
     `SELECT c.id, c.total, c.apagar, c.dia

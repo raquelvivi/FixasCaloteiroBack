@@ -18,6 +18,7 @@ module.exports = app => {
   router.get("/api/compra/:id", Compras.findAll);
   router.put("/api/compra/:id", Compras.update);
   router.put("/api/compra/grande/:id", Compras.updatesMultiplos);
+  router.get("/api/compra/dashboard", Compras.dashboard);
   
 
   app.use("/", router);
