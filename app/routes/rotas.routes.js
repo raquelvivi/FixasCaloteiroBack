@@ -14,7 +14,7 @@ module.exports = app => {
   router.delete("/api/fixa", Fixass.deleteAll);
 
 
-  router.get("/api/mercado/login", Mercado.Login);
+  router.post("/api/mercado/login", Mercado.Login);
 
   // COMPRAS
   router.get("/api/compra/dashboard", Compras.dashboard);

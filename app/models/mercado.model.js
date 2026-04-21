@@ -16,7 +16,7 @@ Mercadoss.Login = async (nome, senha) => {
     senha = $2;`, [nome, senha]
   );
 
-  return res.rows[0].id;
+  return res.rows[0].id || 0;
 }
 
 
