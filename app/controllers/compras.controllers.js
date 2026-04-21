@@ -59,22 +59,16 @@ exports.findAll = (req, res) => {
   });
 };
 
-exports.dashboard = (req, res) => {
-  Compras.dashboard( (err, data) => {
-
-    
-    if (err) {
-      if (err.kind === "not_found") {
-        res.status(404).send({
-          message: `(controllers) pesquisa nao encontrada com id ${req.params.id}.`,
-        });
-      } else {
-        res.status(500).send({
-          message: "Erro ao buscar (controllers) ",
-        });
-      }
-    } else res.send(data);
-  });
+exports.dashboard = async (req, res = {}) => {
+  try {
+    const data = await Compras.dashboard();
+    res.send(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({
+      message: "Erro ao buscar dashboard",
+    });
+  }
 };
 
 

@@ -101,7 +101,7 @@ Comprass.updateById = (id, compras, result) => {
   );
 };
 
-async function dashboard() {
+Comprass.dashboard = async () => {
   const res = await pool.query(
     `SELECT CAST(SUM(c.apagar) AS DECIMAL(10,2)) AS dividasTotais from fixa f 
       join compra c on c.idfixa = f.id
@@ -113,7 +113,7 @@ async function dashboard() {
   );
 
   return {
-    dividasTotais: res.rows[0].dividadasTotais,
+    dividasTotais: res.rows[0].dividastotais,
     total_fixas: resTotalFixas.rows[0].total_fixas
   };
 }

@@ -13,12 +13,13 @@ module.exports = app => {
   router.delete("/api/fixa", Fixass.deleteAll);
 
   // COMPRAS
+  router.get("/api/compra/dashboard", Compras.dashboard);
   router.post("/api/compra", Compras.create);
   // router.get("/api/compra", Compras.findAll);
   router.get("/api/compra/:id", Compras.findAll);
   router.put("/api/compra/:id", Compras.update);
   router.put("/api/compra/grande/:id", Compras.updatesMultiplos);
-  router.get("/api/compra/dashboard", Compras.dashboard);
+  
   
 
   app.use("/", router);
