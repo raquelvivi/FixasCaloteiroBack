@@ -1,6 +1,7 @@
 module.exports = app => {
   const Fixass = require("../controllers/fixas.controllers.js");
   const Compras = require("../controllers/compras.controllers.js");
+  const Mercado = require("../controllers/mercado.controllers.js");
 
   var router = require("express").Router();
 
@@ -11,6 +12,9 @@ module.exports = app => {
   router.put("/api/fixa/:id", Fixass.update);
   router.delete("/api/fixa/:id", Fixass.delete);
   router.delete("/api/fixa", Fixass.deleteAll);
+
+
+  router.get("/api/mercado/login", Mercado.Login);
 
   // COMPRAS
   router.get("/api/compra/dashboard", Compras.dashboard);
