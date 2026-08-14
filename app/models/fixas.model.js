@@ -10,6 +10,7 @@ const Fixass = function (fixa) {
   this.creditomax = fixa.creditomax;
   this.datapaga = fixa.datapaga;
   this.foto = fixa.foto;
+  this.idmercado = fixa.idmercado;
 };
 
 Fixass.create = async (NewFixa, result)  => {
@@ -20,7 +21,7 @@ Fixass.create = async (NewFixa, result)  => {
 
      await client.query("BEGIN"); // Inicia a transação
   const idCriado = await client.query(
-    "INSERT INTO fixa (nome, apelido, logradouro, numero, bairro, creditomax) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+    "INSERT INTO fixa (nome, apelido, logradouro, numero, bairro, creditomax, idmercado) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
     [
       NewFixa.nome,
       NewFixa.apelido,
@@ -28,6 +29,7 @@ Fixass.create = async (NewFixa, result)  => {
       NewFixa.numero || '0000-000',
       NewFixa.bairro || 'Tranquedo Neves',
       parseFloat(NewFixa.creditomax),
+      NewFixa.idmercado
     ]
   );
 
@@ -58,11 +60,11 @@ Fixass.create = async (NewFixa, result)  => {
 }
 
 
-Fixass.findById = (id, result) => {
+Fixass.findById = (id, idmercado, result) => {
   console.log("findById id or nome = ", id);
 
   if (/^\d+$/.test(id)) {
-    pool.query("SELECT * FROM fixa WHERE id = $1", [id], (err, res) => {
+    pool.query("SELECT * FROM fixa WHERE id = $1 AND idmercado = $2", [id, idmercado], (err, res) => {
       if (err) {
         //throw error
         console.log("error: ", err);
@@ -81,21 +83,22 @@ Fixass.findById = (id, result) => {
   } else if (/^[a-zA-Z\s]+$/.test(id)) {
     pool.query(
       `SELECT 
-    f.id, f.nome, f.apelido, f.logradouro, f.numero,
-    f.creditomax, f.bairro, f.foto, f.datapaga, f.tipofoto,
-    SUM(c.apagar) AS total
-FROM 
-    compra c
-JOIN 
-    fixa f ON c.idfixa = f.id
-WHERE 
-    f.nome ILIKE $1
-GROUP BY 
-    f.id, f.nome, f.apelido, f.logradouro, f.numero,
-    f.creditomax, f.bairro, f.foto, f.datapaga, f.tipofoto
-ORDER BY 
-    f.nome DESC;`,
-      [`%${id}%`],
+          f.id, f.nome, f.apelido, f.logradouro, f.numero,
+          f.creditomax, f.bairro, f.foto, f.datapaga, f.tipofoto,
+          SUM(c.apagar) AS total
+      FROM 
+          compra c
+      JOIN 
+          fixa f ON c.idfixa = f.id
+      WHERE 
+          f.nome ILIKE $1 and f.idmercado = $2
+      GROUP BY 
+          f.id, f.nome, f.apelido, f.logradouro, f.numero,
+          f.creditomax, f.bairro, f.foto, f.datapaga,
+          f.tipofoto
+      ORDER BY 
+          f.nome DESC;`,
+      [`%${id}%`, idmercado],
       (err, res) => {
         if (err) {
           //throw error
@@ -114,7 +117,7 @@ ORDER BY
       }
     );
   } else {
-    pool.query("SELECT * FROM fixa WHERE id = $1", [id], (err, res) => {
+    pool.query("SELECT * FROM fixa WHERE id = $1 AND idmercado = $2", [id], (err, res) => {
       if (err) {
         //throw error
         console.log("error: ", err);
@@ -161,19 +164,30 @@ ORDER BY
   });
 };
 
-// Fixass.getAll = (nome, result) => {
-//   const query = "SELECT * FROM fixa ";
+Fixass.findByIdMercado = (idmercado, result) => {
+  let query =  `
+    SELECT 
+      f.id, f.nome, f.apelido, f.logradouro, f.numero,
+        f.creditomax, f.bairro,f.foto, f.datapaga, f.tipofoto,
+      SUM(c.apagar) as total
+    FROM compra c
+    JOIN fixa f ON c.idfixa = f.id
+    where idmercado = $1
+    GROUP BY f.id
+    ORDER BY f.nome ASC
+    Limit 20;
+`;
 
-//   pool.query(query, (err, res) => {
-//     if (err) {
-//       console.log("error: ", err);
-//       result(null, err);
-//       return;
-//     }
-//     // console.log("fixa: ", res.rows);
-//     result(null, res);
-//   });
-// };
+  pool.query(query, [idmercado], (err, res) => {
+    if (err) {
+      console.log("error: ", err);
+      result(null, err);
+      return;
+    }
+    // console.log("fixa: ", res.rows);
+    result(null, res);
+  });
+};
 
 Fixass.updateById = (id, fixa, result) => {
   console.log(fixa);

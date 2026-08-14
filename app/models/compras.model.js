@@ -37,16 +37,28 @@ Comprass.create = (NewCompras, result) => {
 };
 
 Comprass.findById = (id, result) => {
-  const query = `
-    SELECT f.id as pessoa_id, f.nome, f.apelido, f.creditomax, f.datapaga,
-           c.id as compra_id, c.dia, c.total, c.tipopag, c.idfuncio, c.apagar
-    FROM compra c
-    JOIN fixa f ON c.idfixa = f.id
-    WHERE f.id = ${id}
-    ORDER by dia asc
-  `;
 
-  pool.query(query, (err, res) => {
+
+  pool.query(
+    `
+    WITH Compras_Das_Fixas AS (
+      SELECT 
+              c.id as compra_id, c.dia, c.total, c.tipopag, c.idfuncio, c.apagar, c.idfixa
+      FROM compra c
+      WHERE c.idfixa = $1
+              AND c.apagar <> 0
+    )
+
+       SELECT 
+              f.id as pessoa_id, f.nome, f.apelido, f.creditomax, f.datapaga, f.foto,
+              c.compra_id, c.dia, c.total, c.tipopag, c.idfuncio, c.apagar
+       FROM fixa f
+       LEFT JOIN Compras_Das_Fixas c ON c.idfixa = f.id
+       WHERE f.id = $2
+       ORDER by c.dia asc
+  `, [id, id]
+    
+    , (err, res) => {
     if (err) {
       console.log("error: ", err);
       result(null, err);
@@ -54,25 +66,46 @@ Comprass.findById = (id, result) => {
     }
 
     if (res.rows.length) {
+
+      let total = 0;
+      let compras = [];
+      if (res.rows[0].compra_id != null){
+          compras = res.rows.map((r) => ({
+          
+              id: r.compra_id,
+              dia: r.dia,
+              total: r.total,
+              tipopag: r.tipopag,
+              idfuncio: r.idfuncio,
+              apagar: r.apagar,
+        }));
+
+        for (let i = 0; i < res.rows.length; i++) {
+        total += parseFloat(res.rows[i].apagar);
+      }
+
+      }else{
+        compras = [];
+      }
+
+      
+      console.log("dividaTotal: ", total);
       const pessoa = {
         id: res.rows[0].pessoa_id,
         nome: res.rows[0].nome,
         apelido: res.rows[0].apelido,
         creditomax: res.rows[0].creditomax,
         datapaga: res.rows[0].datapaga,
+        dividaTotal: total,
+        foto: res.rows[0].foto || 'https://drive.google.com/file/d/1nfVNUl3bJ3NzP7_YnYyqgyzUsFDlkpXy/view?usp=drive_link'
       };
 
-      const compras = res.rows.map((r) => ({
-        id: r.compra_id,
-        dia: r.dia,
-        total: r.total,
-        tipopag: r.tipopag,
-        idfuncio: r.idfuncio,
-        apagar: r.apagar,
-      }));
 
+      
+
+      console.log("compras: ", compras);
       result(null, { pessoa, compras });
-      return;
+      return ({ pessoa, compras });
     }
 
     result(null, null);
@@ -101,22 +134,176 @@ Comprass.updateById = (id, compras, result) => {
   );
 };
 
-Comprass.dashboard = async () => {
-  const res = await pool.query(
-    `SELECT CAST(SUM(c.apagar) AS DECIMAL(10,2)) AS dividasTotais from fixa f 
-      join compra c on c.idfixa = f.id
-      where f.idmercado = 1;`
-  );
+Comprass.dashboard = async (idmercado) => {
+    const QueryMetricas = `
+        SELECT
+            COALESCE(SUM(c.apagar), 0)::DECIMAL(10,1) AS dividas_totais,
+            (
+                SELECT COUNT(*)
+                FROM fixa
+                WHERE idmercado = $1
+            ) AS total_fixas,
 
-  const resTotalFixas = await pool.query(
-    `select COUNT(*) AS total_fixas from fixa where idmercado = 1;`
-  );
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN DATE_TRUNC('month', c.criado_em)
+                             = DATE_TRUNC('month', CURRENT_DATE)
+                        THEN c.apagar
+                        ELSE 0
+                    END
+                ),
+                0
+            )::DECIMAL(10,1) AS vendas_fiadas_mes,
 
-  return {
-    dividasTotais: res.rows[0].dividastotais,
-    total_fixas: resTotalFixas.rows[0].total_fixas
-  };
-}
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN DATE_TRUNC('month', c.atualizado_em)
+                             = DATE_TRUNC('month', CURRENT_DATE)
+                             AND c.total - c.apagar > 0
+                        THEN c.total - c.apagar
+                        ELSE 0
+                    END
+                ),
+                0
+            )::DECIMAL(10,1) AS recebidos_mes
+
+        FROM fixa f
+        JOIN compra c ON c.idfixa = f.id
+        WHERE f.idmercado = $1;
+    `
+
+    const QueryMaioresContasFiadas = `
+        SELECT CAST(SUM(c.apagar) AS DECIMAL(10,2)) AS dividasPorCliente, f.nome from fixa f 
+          join compra c on c.idfixa = f.id
+          where f.idmercado = $1
+          group by f.nome
+          order by dividasPorCliente Desc
+          limit 5;
+    `;
+
+    const QueryTodasComprasFiadas = `
+      select COUNT(*) AS total_compras from compra c 
+      join fixa f on c.idfixa = f.id
+      where f.idmercado = $1 and
+      c.apagar > 0;
+    `;
+
+
+    const QueryMaiorCompraFiado = `
+      select c.apagar, f.nome from compra c 
+      join fixa f on c.idfixa = f.id
+      where f.idmercado = $1
+      order by c.apagar Desc
+      limit 1;
+    `;
+
+    const QueryUltimaCompra = `
+      select c.total, c.criado_em, f.nome from compra c 
+      join fixa f on c.idfixa = f.id
+      where f.idmercado = $1
+      order by c.criado_em Desc
+      limit 1;
+    `;
+
+
+    const QueryComprasDos7Dias = `
+      SELECT
+          DATE(compra.atualizado_em) AS data,
+          SUM(compra.total - compra.apagar) AS total_Recebido
+      FROM compra
+      join fixa on fixa.id = compra.idfixa
+      where fixa.idmercado = $1
+      GROUP BY DATE(compra.atualizado_em)
+      ORDER BY data desc
+      limit 7;
+    `;
+
+    const QueryFichasPerdidas = `
+      WITH ultima_movimentacao AS (
+        SELECT
+            f.id,
+            f.nome,
+            MAX(c.atualizado_em) AS ultima_atividade
+        FROM fixa f
+        INNER JOIN compra c
+            ON c.idfixa = f.id
+        where f.idmercado = $1
+        GROUP BY
+            f.id,
+            f.nome
+    ),
+
+    status_clientes AS (
+        SELECT
+            id,
+            nome,
+            ultima_atividade,
+
+            
+          CASE
+            WHEN ultima_atividade >= NOW() - INTERVAL '3 months' THEN 'Regular'
+            WHEN ultima_atividade >= NOW() - INTERVAL '6 months' THEN 'Em risco'
+            ELSE 'Perdido'
+          END AS status
+            
+
+        FROM ultima_movimentacao
+    )
+
+    SELECT
+        sc.status,
+        COUNT(DISTINCT sc.id) AS quantidade_clientes,
+        COALESCE(SUM(c.apagar), 0) AS valor_em_aberto
+
+    FROM status_clientes sc
+
+    INNER JOIN compra c
+        ON c.idfixa = sc.id
+
+    WHERE c.apagar > 0
+
+    GROUP BY sc.status
+
+    ORDER BY
+        CASE sc.status
+            WHEN 'Regular' THEN 1
+            WHEN 'Em risco' THEN 2
+            WHEN 'Perdido' THEN 3
+        END;
+    `
+
+    const [
+      MetricasIniciais,
+      MaioresContasFiadas,
+      TodasComprasFiadas,
+      MaiorCompraFiado,
+      UltimaCompra,
+      ComprasDos7Dias,
+      FichasPerdidas
+    ] = await Promise.all([
+      pool.query(QueryMetricas, [idmercado]),
+      pool.query(QueryMaioresContasFiadas, [idmercado]),
+      pool.query(QueryTodasComprasFiadas, [idmercado]),
+      pool.query(QueryMaiorCompraFiado, [idmercado]),
+      pool.query(QueryUltimaCompra, [idmercado]),
+      pool.query(QueryComprasDos7Dias, [idmercado]),
+      pool.query(QueryFichasPerdidas, [idmercado])
+    ]);
+
+
+    return {
+      MetricasIniciais: MetricasIniciais.rows[0],
+      MaioresContasFiadas: MaioresContasFiadas.rows,
+      TodasComprasFiadas: TodasComprasFiadas.rows[0],
+      MaiorCompraFiado: MaiorCompraFiado.rows[0],
+      UltimaCompra: UltimaCompra.rows[0],
+      ComprasDos7Dias: ComprasDos7Dias.rows,
+      FichasPerdidas: FichasPerdidas.rows
+
+    };
+};
 
 async function pesquisa(id) {
   const res = await pool.query(

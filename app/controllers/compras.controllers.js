@@ -41,7 +41,7 @@ exports.create = (req, res) => {
 // };
 
 exports.findAll = (req, res) => {
-  console.log(req.body);
+  console.log(req.params.id);
   Compras.findById(req.params.id, (err, data) => {
 
     
@@ -61,7 +61,7 @@ exports.findAll = (req, res) => {
 
 exports.dashboard = async (req, res = {}) => {
   try {
-    const data = await Compras.dashboard();
+    const data = await Compras.dashboard(req.params.id);
     res.send(data);
   } catch (err) {
     console.error(err);

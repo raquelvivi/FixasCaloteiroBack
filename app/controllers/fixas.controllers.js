@@ -16,7 +16,8 @@ exports.create = (req, res) => {
         numero: req.body.numero || '0000-000',
         bairro: req.body.bairro || "Tranquedo Neves",
         creditomax: req.body.creditomax || 100,
-        datapaga: req.body.datapaga || 10
+        datapaga: req.body.datapaga || 10,
+        idmercado: req.body.idmercado
     });
     
     // Save Fixas in the database
@@ -47,9 +48,40 @@ exports.findAll = (req, res) => {
         
     });
 };
+
+//pesquisa todas as fixas de um mercado
+exports.findAllMercado = (req, res) => {
+   Fixas.findByIdMercado(req.params.id, (err, data) => {
+
+        if (err) {
+            if (err.kind === "not_found") {
+                res.status(404).send({
+                    message: `(controllers) pesquisa nao encontrada com id ${ req.params.id }.`
+});
+} else {
+    res.status(500).send({
+        message: "Erro ao buscar (controllers) " +
+            req.params.id
+    });
+}
+} else
+res.send(data);
+});
+
+}
+
+
+
 // Find a single Fixas by Id
 exports.findOne = (req, res) => {
-    Fixas.findById(req.params.id, (err, data) => {
+
+    if (!req.body) {
+        res.status(400).send({
+            message: "body vaziu"
+        });
+    }
+
+    Fixas.findById(req.body.id, req.body.idmercado, (err, data) => {
 
         if (err) {
             if (err.kind === "not_found") {
