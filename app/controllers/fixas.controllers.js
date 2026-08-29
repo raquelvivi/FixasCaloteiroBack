@@ -49,9 +49,52 @@ exports.findAll = (req, res) => {
     });
 };
 
-//pesquisa todas as fixas de um mercado
+//pesquisa 20 fixas de um mercado
 exports.findAllMercado = (req, res) => {
    Fixas.findByIdMercado(req.params.id, (err, data) => {
+
+        if (err) {
+            if (err.kind === "not_found") {
+                res.status(404).send({
+                    message: `(controllers) pesquisa nao encontrada com id ${ req.params.id }.`
+});
+} else {
+    res.status(500).send({
+        message: "Erro ao buscar (controllers) " +
+            req.params.id
+    });
+}
+} else
+res.send(data);
+});
+
+}
+
+//pesquisa todas as compras de um cliente
+exports.buscandoTodasFixasMercado = (req, res) => {
+   Fixas.buscandoTodasFixasMercado(req.params.id, (err, data) => {
+
+        if (err) {
+            if (err.kind === "not_found") {
+                res.status(404).send({
+                    message: `(controllers) pesquisa nao encontrada com id ${ req.params.id }.`
+});
+} else {
+    res.status(500).send({
+        message: "Erro ao buscar (controllers) " +
+            req.params.id
+    });
+}
+} else
+res.send(data);
+});
+
+}
+
+
+//pesquisa todas as fixas de um mercado
+exports.BuscaTodasFixasDoMercado = (req, res) => {
+   Fixas.BuscaTodasFixasDoMercado(req.params.id, (err, data) => {
 
         if (err) {
             if (err.kind === "not_found") {

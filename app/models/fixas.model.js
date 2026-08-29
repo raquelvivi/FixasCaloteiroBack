@@ -189,6 +189,61 @@ Fixass.findByIdMercado = (idmercado, result) => {
   });
 };
 
+
+Fixass.BuscaTodasFixasDoMercado = (idmercado, result) => {
+  let query =  `
+    SELECT 
+      f.id, f.nome, f.apelido, f.logradouro, f.numero,
+        f.creditomax, f.bairro,f.foto, f.datapaga, f.tipofoto,
+      SUM(c.apagar) as total
+    FROM compra c
+    JOIN fixa f ON c.idfixa = f.id
+    where idmercado = $1
+    GROUP BY f.id
+    ORDER BY f.nome ASC
+`;
+
+  pool.query(query, [String(idmercado)], (err, res) => {
+    if (err) {
+      console.log("error: ", err);
+      result(null, err);
+      return;
+    }
+    // console.log("fixa: ", res.rows);
+    result(null, res);
+  });
+};
+
+
+Fixass.buscandoTodasFixasMercado = (idmercado, result) => {
+  console.log(idmercado);
+  
+  const query = `
+    SELECT 
+        c.criado_em As dia, c.total, c.apagar, c.id
+    FROM 
+        compra c
+    WHERE 
+        c.idfixa = $1 
+    ORDER BY 
+        c.criado_em DESC;
+  `;
+
+  pool.query(query, [idmercado], (err, res) => {
+    console.log(query);
+    if (err) {
+      console.log("error: ", err);
+      result(err, null); // Nota: o padrão Node.js costuma passar o erro no 1º parâmetro
+      return;
+    }
+    console.log("fixa: ", res.rows);
+    result(null, res.rows); // Retornar res.rows diretamente facilita o envio dos dados pelo Controller
+  });
+};
+
+
+
+
 Fixass.updateById = (id, fixa, result) => {
   console.log(fixa);
   pool.query(

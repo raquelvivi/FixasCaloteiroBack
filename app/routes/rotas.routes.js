@@ -9,6 +9,7 @@ module.exports = app => {
   router.post("/api/fixa", Fixass.create);
   router.get("/api/fixa", Fixass.findAll);
   router.delete("/api/fixa", Fixass.deleteAll);
+
   router.post("/api/fixa_mercado/porid", Fixass.findOne);
 
   router.post("/api/mercado/login", Mercado.Login);
@@ -27,6 +28,9 @@ module.exports = app => {
 
   router.get("/api/fixa_mercado/:id", Fixass.findAllMercado);
   router.put("/api/fixa/:id", Fixass.update);
+  router.get("/api/fixa/:id", Fixass.BuscaTodasFixasDoMercado);
+  router.get("/api/fixa_mercado/todos/:id", Fixass.buscandoTodasFixasMercado);
+
   router.delete("/api/fixa/:id", Fixass.delete);
   router.get("/api/compra/dashboard/:id", Compras.dashboard);
   

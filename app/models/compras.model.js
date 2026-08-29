@@ -36,80 +36,134 @@ Comprass.create = (NewCompras, result) => {
   );
 };
 
-Comprass.findById = (id, result) => {
-
-
-  pool.query(
-    `
-    WITH Compras_Das_Fixas AS (
-      SELECT 
-              c.id as compra_id, c.dia, c.total, c.tipopag, c.idfuncio, c.apagar, c.idfixa
+const valorPagoPeloClienteTotal = async (id) => {
+  try {
+    const res = await pool.query(
+      `
+      SELECT COALESCE(SUM(c.total - c.apagar), 0) AS "valorPago"
       FROM compra c
-      WHERE c.idfixa = $1
-              AND c.apagar <> 0
-    )
+      WHERE c.apagar != c.total
+        AND c.idfixa = $1
+      `,
+      [id]
+    );
 
-       SELECT 
-              f.id as pessoa_id, f.nome, f.apelido, f.creditomax, f.datapaga, f.foto,
-              c.compra_id, c.dia, c.total, c.tipopag, c.idfuncio, c.apagar
-       FROM fixa f
-       LEFT JOIN Compras_Das_Fixas c ON c.idfixa = f.id
-       WHERE f.id = $2
-       ORDER by c.dia asc
-  `, [id, id]
-    
-    , (err, res) => {
-    if (err) {
-      console.log("error: ", err);
-      result(null, err);
-      return;
-    }
+    return parseFloat(res.rows[0].valorPago);
+  } catch (err) {
+    console.log("error:", err);
+    throw err;
+  }
+};
 
-    if (res.rows.length) {
+Comprass.findById = async (id, result) => {
 
-      let total = 0;
-      let compras = [];
-      if (res.rows[0].compra_id != null){
-          compras = res.rows.map((r) => ({
-          
+  try {
+
+    const valorPagoCliente = await valorPagoPeloClienteTotal(id);
+
+    pool.query(
+      `
+      WITH Compras_Das_Fixas AS (
+        SELECT 
+          c.id as compra_id,
+          c.criado_em,
+          c.total,
+          c.tipopag,
+          c.idfuncio,
+          c.apagar,
+          c.idfixa
+        FROM compra c
+        WHERE c.idfixa = $1
+          AND c.apagar <> 0
+      )
+
+      SELECT 
+        f.id as pessoa_id,
+        f.nome,
+        f.apelido,
+        f.creditomax,
+        f.datapaga,
+        f.foto,
+        c.compra_id,
+        c.criado_em,
+        c.total,
+        c.tipopag,
+        c.idfuncio,
+        c.apagar
+
+      FROM fixa f
+
+      LEFT JOIN Compras_Das_Fixas c
+        ON c.idfixa = f.id
+
+      WHERE f.id = $2
+
+      ORDER BY c.criado_em ASC
+      `,
+      [id, id],
+      (err, res) => {
+
+        if (err) {
+          console.log("error:", err);
+          result(null, err);
+          return;
+        }
+
+        if (res.rows.length) {
+
+          let total = 0;
+          let compras = [];
+
+          if (res.rows[0].compra_id != null) {
+
+            compras = res.rows.map((r) => ({
               id: r.compra_id,
-              dia: r.dia,
+              dia: r.criado_em,
               total: r.total,
               tipopag: r.tipopag,
               idfuncio: r.idfuncio,
               apagar: r.apagar,
-        }));
+            }));
 
-        for (let i = 0; i < res.rows.length; i++) {
-        total += parseFloat(res.rows[i].apagar);
+            for (let i = 0; i < res.rows.length; i++) {
+              total += parseFloat(res.rows[i].apagar);
+            }
+
+          }
+
+          console.log(compras)
+
+          console.log("dividaTotal:", total);
+          console.log("valorPagoCliente:", valorPagoCliente);
+
+          const pessoa = {
+            id: res.rows[0].pessoa_id,
+            nome: res.rows[0].nome,
+            apelido: res.rows[0].apelido,
+            creditomax: res.rows[0].creditomax,
+            datapaga: res.rows[0].datapaga,
+            dividaTotal: total,
+            valorPagoC: valorPagoCliente,
+            foto: res.rows[0].foto || 'URL_DA_FOTO'
+          };
+
+          result(null, {
+            pessoa,
+            compras
+          });
+
+          return;
+        }
+        
+
+        result(null, null);
       }
+    );
 
-      }else{
-        compras = [];
-      }
-
-      
-      console.log("dividaTotal: ", total);
-      const pessoa = {
-        id: res.rows[0].pessoa_id,
-        nome: res.rows[0].nome,
-        apelido: res.rows[0].apelido,
-        creditomax: res.rows[0].creditomax,
-        datapaga: res.rows[0].datapaga,
-        dividaTotal: total,
-        foto: res.rows[0].foto || 'https://drive.google.com/file/d/1nfVNUl3bJ3NzP7_YnYyqgyzUsFDlkpXy/view?usp=drive_link'
-      };
-
-
-      
-
-      console.log("compras: ", compras);
-      result(null, { pessoa, compras });
-      return ({ pessoa, compras });
-    }
-
-    result(null, null);
-  });
+  } catch (err) {
+      console.log("Erro ao buscar valor pago:", err);
+      result(null, err);
+  }
 };
 
 Comprass.updateById = (id, compras, result) => {

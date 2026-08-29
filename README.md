@@ -16,6 +16,12 @@
 
 </td>
 <td valign="top">
+
+<!-- 
+      Iniciar back:
+      npm run dev
+      
+    -->
   
 #### 🗄️ Banco de Dados
 
